@@ -3,6 +3,9 @@ var P2Game = {};
 
 var game = new Phaser.Game(840, 500, Phaser.CANVAS, 'game');
 var score = 0;
+var visitdesert = false;
+var visitairplane = false;
+var visittrivia = false;
 
 
 P2Game.Boot = function (game){
@@ -117,13 +120,16 @@ preload: function () {
 
 
     ToCamel: function(){
+	if(visitdesert == false){
 	this.state.start('Desert');
+	}
 
     },
 
     ToAirplane: function(){
+	if(visitairplane == false){
 	this.state.start('FlyingAirplane');
-
+	}
     },
 
 
@@ -205,7 +211,7 @@ P2Game.Desert.prototype = {
 		this.player.body.immovable = true;
 
 		this.game.add.button(game.world.centerX-50, game.world.centerY, 'continuebutton', this.Click, this, null);
-		score = score + 60-this.timeleft;
+		score = score + (60-this.timeleft);
 
 	},
 
@@ -391,12 +397,14 @@ else if (this.cursors.up.isDown)
 		this.player.body.velocity.x = 0;
 		this.game.add.button(game.world.centerX-50, game.world.centerY, 'continuebutton', this.Click, this, null);
 		score = score + this.health + 81-this.timeleft;
+		this.health = 0;
 	}    
 
 	if(this.health <= 0){ 
 		this.player.body.velocity.x = 0;
 		this.game.add.button(this.player.x, this.player.y, 'continuebutton', this.Click, this, null);
 		score = score + this.health + 81-this.timeleft;
+		this.timeleft = 0;
 	
 	}
 
