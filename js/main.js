@@ -6,6 +6,8 @@ var score = 0;
 var visitdesert = false;
 var visitairplane = false;
 var visittrivia = false;
+var visitwater = false;
+var music;
 
 
 P2Game.Boot = function (game){
@@ -45,13 +47,21 @@ P2Game.Preload.prototype = {
 		this.load.spritesheet('flyingflag','assets/flyingflag.png',50.3,73,11);
 		this.load.spritesheet('camel','assets/camel.png',80,80,12);
 		this.load.spritesheet('redplayer','assets/redrunning.png',98,113,6);
+		this.load.spritesheet('mermaid','assets/mermaid.png',56,48,12);
 		this.load.spritesheet('bull','assets/bull.png',148,80,4);
+		this.load.spritesheet('clam','assets/clamshell.png',1000,1000,2);
 		this.load.image('dessertbg','assets/streetbackground.png');
 		this.load.image('woodbox','assets/woodbox.png');
 		this.load.image('continuebutton','assets/continuebutton.png');
 		this.load.image('airplane','assets/airplane.png');	
 		this.load.tilemap('flyingmap', 'assets/flyingmap.json', null, Phaser.Tilemap.TILED_JSON);
-		this.load.image('bulltile', 'assets/bulltile.png'); 		
+		this.load.tilemap('underwater', 'assets/underwater.json', null, Phaser.Tilemap.TILED_JSON);
+		this.load.image('seaweedtile','assets/seaweedtile.png');
+		this.load.image('bulltile', 'assets/bulltile.png');
+		this.load.image('balloon','assets/balloon.png'); 
+		this.load.image('UW-BG','assets/underwater-bg.jpg'); 
+		this.load.image('sea-urchin','assets/sea-urchin.png');	
+		this.load.audio('ThemeSong',['assets/ThemeSong.mp3','assets/ThemeSong.ogg']);
 
 
 	},
@@ -85,8 +95,8 @@ preload: function () {
 
     create: function () {
 
-	//music = game.add.audio('ThemeSong');
-	//music.play();	
+	music = game.add.audio('ThemeSong');
+	music.play();	
 
 	
 	this.bg = game.add.tileSprite(0, 0, 2000, 1000, 'world-mapbg');
@@ -115,6 +125,9 @@ preload: function () {
 	this.flag1.events.onInputDown.add(this.ToCamel,this);
 	this.flag2.inputEnabled = true;
 	this.flag2.events.onInputDown.add(this.ToAirplane,this);
+	this.flag3.inputEnabled = true;
+	this.flag3.events.onInputDown.add(this.ToWater,this);
+
 
 },
 
@@ -132,10 +145,18 @@ preload: function () {
 	}
     },
 
+    ToWater: function(){
+	if(visitwater == false){
+	this.state.start('UnderWater');
+	}
+    },
+
 
     update: function () {
 
-
+	if(visitwater == true && visitairplane == true && visitdesert == true){
+		this.state.start('End1');
+	}
 
 
     },
@@ -159,7 +180,8 @@ P2Game.Desert = function (game) {
 	this.layer;
 	this.cursors;
 	this.facing = 'left';
-	this.timeleft = 5;
+	this.timeleft = 60;
+	this.score = 0;
 	
 
 };
@@ -167,6 +189,7 @@ P2Game.Desert = function (game) {
 P2Game.Desert.prototype = {
 
     create: function () {
+	visitdesert = true;
 
 	this.bg = game.add.tileSprite(0, 0, 2000, 600, 'dessertbg');
 	this.bg.scale.set(2,2.22);
@@ -188,14 +211,31 @@ P2Game.Desert.prototype = {
 	this.player.animations.add('run', [0,1,2,3],4, true);
     	this.player.animations.add('idle', [0], 1, true);
 
+    	this.broken2 = game.add.group();
+    	this.broken2.enableBody = true;
+
+
 	this.cursors = this.input.keyboard.createCursorKeys();
 	
 	this.game.time.events.repeat(Phaser.Timer.SECOND * 1, 61, this.minustime,this);
+	this.game.time.events.repeat(Phaser.Timer.SECOND * 1, 61, this.addbox, this);
 	
 	
 	
 
     },
+
+
+
+	addbox: function(){
+		this.box = this.broken2.create(800, game.world.randomY+50, 'woodbox');
+       		this.box.body.velocity.x = -100-(2*(60-this.timeleft));
+		this.box.body.allowGravity = false;
+		this.box.scale.set(.2,.2);
+		this.box.body.immovable = true;
+
+	},
+
 
 	Click: function(){
 		this.state.start('WorldMap');
@@ -211,13 +251,26 @@ P2Game.Desert.prototype = {
 		this.player.body.immovable = true;
 
 		this.game.add.button(game.world.centerX-50, game.world.centerY, 'continuebutton', this.Click, this, null);
-		score = score + (60-this.timeleft);
+		score = score + (60-this.timeleft) + this.score;
 
+	},
+
+	up: function(){
+		if(this.cursors.up.isDown){
+			this.player.body.velocity.y = -300;
+		        
+		}
+	},
+
+
+	killballoon: function(body1,body2){
+		body2.kill();
+		this.score++;
 	},
 
 
     update: function () {
-
+		this.game.physics.arcade.collide(this.player,this.broken2, this.up, null, this);
 	this.game.physics.arcade.collide(this.player,this.bull, this.killed, null, this);
 	
 	if(this.timeleft <= 0){
@@ -247,9 +300,11 @@ if (this.cursors.left.isDown)
             this.facing = 'left';
         }
     }
+
+
 else if (this.cursors.up.isDown && this.player.body.onFloor())
     {
-        this.player.body.velocity.y = -200;
+        this.player.body.velocity.y = -300;
 
         if (this.facing != 'idle')
         {
@@ -309,6 +364,7 @@ P2Game.FlyingAirplane = function (game) {
 	this.layer;
 	this.timeleft = 81;
 	this.health = 100;
+	this.score = 0;
 
 },
 
@@ -320,6 +376,8 @@ preload: function () {
     },
 
     create: function () {
+
+	visitairplane = true;
 
 
 	//music2 = game.add.audio('flowercollecting');
@@ -339,14 +397,33 @@ preload: function () {
 	this.player.scale.set(.2,.2);
 	this.player.body.collideWorldBounds = true;
 
+	this.redballoon = game.add.group();
+	this.redballoon.enableBody = true;
+
 	this.game.camera.follow(this.player);
         this.cursors = this.input.keyboard.createCursorKeys();
 
 	this.game.time.events.repeat(Phaser.Timer.SECOND * 1, 81, this.minustime,this);
+	this.game.time.events.repeat(Phaser.Timer.SECOND * .0001, 50, this.makeballoon,this);
 
     },
 
+	killballoon: function(body1, body2){
+		body2.kill();
+		this.score ++;
+	},
     
+
+	makeballoon: function(){
+		this.balloon = this.redballoon.create(game.world.randomX, game.world.randomY+100, 'balloon');
+		this.balloon.body.immovable = true;
+		this.balloon.body.velocity.y = -5;
+
+		
+
+	},
+
+
 	removehealth: function(){
 		this.health--;
 
@@ -370,6 +447,7 @@ preload: function () {
 	this.player.body.velocity.x = 120;
 	this.player.body.velocity.y = 0;
 	this.game.physics.arcade.collide(this.player,this.layer, this.removehealth, null, this);
+	this.game.physics.arcade.overlap(this.player,this.redballoon,this.killballoon,null,this);
 	
 
 
@@ -396,14 +474,14 @@ else if (this.cursors.up.isDown)
 	if(this.timeleft <= 0){
 		this.player.body.velocity.x = 0;
 		this.game.add.button(game.world.centerX-50, game.world.centerY, 'continuebutton', this.Click, this, null);
-		score = score + this.health + 81-this.timeleft;
+		score = score + this.health + 81-this.timeleft + this.score;
 		this.health = 0;
 	}    
 
 	if(this.health <= 0){ 
 		this.player.body.velocity.x = 0;
 		this.game.add.button(this.player.x, this.player.y, 'continuebutton', this.Click, this, null);
-		score = score + this.health + 81-this.timeleft;
+		score = score + this.health + 81-this.timeleft + this.score;
 		this.timeleft = 0;
 	
 	}
@@ -414,7 +492,8 @@ else if (this.cursors.up.isDown)
     render: function () {
 
 	this.game.debug.text("Distance Left: " + this.timeleft, 50, 50);
-	this.game.debug.text("Health: " + this.health, 400, 50);
+	this.game.debug.text("Health: " + this.health, 450, 50);
+	this.game.debug.text("Score: " + this.score, 250, 50);
 
 
     },
@@ -424,17 +503,25 @@ else if (this.cursors.up.isDown)
 
 
 
-//////////InWitchShop/////////////////////////////
-P2Game.InWitchShop = function (game) {
+//////////UnderWater/////////////////////////////
+P2Game.UnderWater = function (game) {
 
-	this.player;
+	this.mermaid;
 	this.bg;
 	this.layer;
+	this.timeleft = 60;
 	this.stop = false;
+	this.score = 0;
+	this.pearl1 = false;
+	this.pearl2 = false;
+	this.pearl3 = false;
+	this.pearl4 = false;
+	this.pearl5 = false;
+	this.health = 100;
 
 },
 
-P2Game.InWitchShop.prototype = {
+P2Game.UnderWater.prototype = {
 
 preload: function () {
  
@@ -442,214 +529,202 @@ preload: function () {
     },
 
     create: function () {
-	locationy = "witchshop";
+	visitwater = true;
 
-	music3 = game.add.audio('hellopotion');
-	music3.play();
+	//music3 = game.add.audio('hellopotion');
+	//music3.play();
 
         //this.game.stage.backgroundColor = '#806000';
-	this.bg = game.add.tileSprite(0, 0, 2000, 600, 'witchbackground');
-	//this.bg.scale.set(2,2);
+	this.bg = game.add.tileSprite(0, 0, 2000, 600, 'UW-BG');
+	this.bg.scale.set(1.2,1);
 
-	this.blackbar = this.game.add.sprite(870,590,'blackbar'); //435
-	this.blackbar.scale.set(1,2);
-	this.game.physics.arcade.enable(this.blackbar);
-	this.blackbar.body.immovable = true;
 	
-	this.map = this.game.add.tilemap('witchmap');
-	this.map.addTilesetImage('witchtile');
+	this.map = this.game.add.tilemap('underwater');
+	this.map.addTilesetImage('seaweedtile');
     	this.layer =this. map.createLayer('Tile Layer 1');
     	this.layer.resizeWorld();
  	this.map.setCollisionBetween(1, 12);
 
-	this.potion1 = this.game.add.sprite(1500,400,'potion1');
-	this.game.physics.arcade.enable(this.potion1);
-	this.potion1.body.immovable = true;
-	this.potion1.scale.set(.3,.3);
+	this.clam1 = this.game.add.sprite(325,500,'clam');
+	this.game.physics.arcade.enable(this.clam1);
+	this.clam1.animations.add('haspearl',[0],1,true);
+	this.clam1.animations.add('nopearl',[1],1,true);
+	this.clam1.animations.play('haspearl');
+	this.clam1.scale.set(.06,.06);
 
-	this.potion2 = this.game.add.sprite(700,80,'potion2');
-	this.game.physics.arcade.enable(this.potion2);
-	//this.potion2.body.immovable = true;
-	this.potion2.scale.set(.3,.3);
+	this.clam2 = this.game.add.sprite(580,90,'clam');
+	this.game.physics.arcade.enable(this.clam2);
+	this.clam2.animations.add('haspearl',[0],1,true);
+	this.clam2.animations.add('nopearl',[1],1,true);
+	this.clam2.animations.play('haspearl');
+	this.clam2.scale.set(.06,.06);
 
-	this.potion3 = this.game.add.sprite(1300,100,'potion3');
-	this.game.physics.arcade.enable(this.potion3);
-	//this.potion3.body.immovable = true;
-	this.potion3.scale.set(.3,.3);
+	this.clam3 = this.game.add.sprite(860,530,'clam');
+	this.game.physics.arcade.enable(this.clam3);
+	this.clam3.animations.add('haspearl',[0],1,true);
+	this.clam3.animations.add('nopearl',[1],1,true);
+	this.clam3.animations.play('haspearl');
+	this.clam3.scale.set(.06,.06);
 
-	this.potion4 = this.game.add.sprite(500,400,'potion4');
-	this.game.physics.arcade.enable(this.potion4);
-	//this.potion4.body.immovable = true;
-	this.potion4.scale.set(.3,.3);
+	this.clam4 = this.game.add.sprite(1480,280,'clam');
+	this.game.physics.arcade.enable(this.clam4);
+	this.clam4.animations.add('haspearl',[0],1,true);
+	this.clam4.animations.add('nopearl',[1],1,true);
+	this.clam4.animations.play('haspearl');
+	this.clam4.scale.set(.06,.06);
 
-	this.potion5 = this.game.add.sprite(1000,200,'potion5');
-	this.game.physics.arcade.enable(this.potion5);
-	//this.potion5.body.immovable = true;
-	this.potion5.scale.set(.3,.3);
-
-	this.witchlady = this.game.add.sprite(900,400, 'witchsprite');
-	this.game.physics.arcade.enable(this.witchlady);
-	this.witchlady.animations.add('left', [3,4,5], 3, true);
-    	this.witchlady.animations.add('right', [6,7,8], 3, true);
-    	this.witchlady.animations.add('idle', [0,1,2], 3, true);
-    	this.witchlady.animations.add('up', [9,10,11], 3, true);
-
-	this.player = this.game.add.sprite(920,540,'player');
-	this.game.physics.arcade.enable(this.player);
-	this.player.animations.add('left', [3,4,5], 3, true);
-    	this.player.animations.add('right', [6,7,8], 3, true);
-    	this.player.animations.add('idle', [0,1,2], 3, true);
-    	this.player.animations.add('up', [9,10,11], 3, true);
-
-
-	this.game.camera.follow(this.player);
-        this.cursors = this.input.keyboard.createCursorKeys();
-
-	this.game.time.events.repeat(Phaser.Timer.SECOND * 1, 3000, this.minustime,this);
-	this.game.time.events.repeat(Phaser.Timer.SECOND * 3, 3000, this.witchladymove,this);
-
-
+	this.clam5 = this.game.add.sprite(1850,500,'clam');
+	this.game.physics.arcade.enable(this.clam5);
+	this.clam5.animations.add('haspearl',[0],1,true);
+	this.clam5.animations.add('nopearl',[1],1,true);
+	this.clam5.animations.play('haspearl');
+	this.clam5.scale.set(.06,.06);
 	
-    
+	this.mermaid = this.game.add.sprite(80,80, 'mermaid');
+	this.game.physics.arcade.enable(this.mermaid);
+	this.mermaid.animations.add('left', [3,4,5], 3, true);
+    	this.mermaid.animations.add('right', [6,7,8], 3, true);
+    	this.mermaid.animations.add('down', [0,1,2], 3, true);
+    	this.mermaid.animations.add('up', [9,10,11], 3, true);
+    	this.mermaid.animations.add('idle', [0], 1, true);
+	this.game.camera.follow(this.mermaid);
+
+	this.seaurchin1 = this.game.add.sprite(170,200,'sea-urchin');
+	this.game.physics.arcade.enable(this.seaurchin1);
+	this.seaurchin1.scale.set(.3,.3);
+
+	this.seaurchin2 = this.game.add.sprite(670,100,'sea-urchin');
+	this.game.physics.arcade.enable(this.seaurchin2);
+	this.seaurchin2.scale.set(.3,.3);
+
+	this.seaurchin3 = this.game.add.sprite(1300,300,'sea-urchin');
+	this.game.physics.arcade.enable(this.seaurchin3);
+	this.seaurchin3.scale.set(.3,.3);
+
+
+
+
+	//this.game.camera.follow(this.player);
+        this.cursors = this.input.keyboard.createCursorKeys();
+ 
 },
 
-   witchladymove: function(){
-	this.witchlady.body.velocity.x = Math.random()*(101)+100*-1^(Math.random());
-	this.witchlady.body.velocity.y = Math.random()*(101)+100*-1^(Math.random());
-},
+	Click: function(){
+		this.state.start('WorldMap');
+	},
 
-    minustime: function(){
-	timeleft --;
+	getpearl1: function(){
+		if(this.pearl1 == false){
+		this.clam1.animations.play('nopearl');
+		this.score++;
+		}
+		this.pearl1 = true;
+	},
+
+	getpearl2: function(){
+		if(this.pearl2 == false){
+		this.clam2.animations.play('nopearl');
+		this.score++;
+		}
+		this.pearl2 = true;
+	},
+
+	getpearl3: function(){
+		if(this.pearl3 == false){
+		this.clam3.animations.play('nopearl');
+		this.score++;
+		}
+		this.pearl3 = true;
+	},
+
+	getpearl4: function(){
+		if(this.pearl4 == false){
+		this.clam4.animations.play('nopearl');
+		this.score++;
+		}
+		this.pearl4 = true;
+	},
+
+	getpearl5: function(){
+		if(this.pearl5 == false){
+		this.clam5.animations.play('nopearl');
+		this.score++;
+		}
+		this.pearl5 = true;
+	},
+
+   
+    minushp: function(){
+	this.health --;
 },
    
-    goDesert: function(){
-	this.state.start('Desert');
-},
-
-   pausemovement: function(){
-	this.witchlady.body.velocity.x = 0;
-	this.witchlady.body.velocity.y = 0;
-},
-
-   getpotion1: function(body1,body2){
-	if(holdingpotion == false && money >= 150){
-		body2.kill()
-		potioninbag = "potion1"
-		holdingpotion = true;
-		money = money - 150;
-	}
-},
-
-   getpotion2: function(body1,body2){
-	if(holdingpotion == false && money >= 150){
-		body2.kill()
-		potioninbag = "potion2"
-		holdingpotion = true;
-		money = money - 150;
-	}
-},
-
-   getpotion3: function(body1,body2){
-	if(holdingpotion == false && money >= 150){
-		body2.kill()
-		potioninbag = "potion3"
-		holdingpotion = true;
-		money = money - 150;
-	}
-},
-
-   getpotion4: function(body1,body2){
-	if(holdingpotion == false && money >= 150){
-		body2.kill()
-		potioninbag = "potion4"
-		holdingpotion = true;
-		money = money - 150;
-	}
-},
-
-   getpotion5: function(body1,body2){
-	if(holdingpotion == false && money >= 150){
-		body2.kill()
-		potioninbag = "potion5"
-		holdingpotion = true;
-		money = money - 150;
-	}
-},
-
-
-
 
     update: function () {
+	this.game.physics.arcade.overlap(this.mermaid,this.clam1,this.getpearl1,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.clam2,this.getpearl2,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.clam3,this.getpearl3,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.clam4,this.getpearl4,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.clam5,this.getpearl5,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.seaurchin1,this.minushp,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.seaurchin2,this.minushp,null,this);
+	this.game.physics.arcade.overlap(this.mermaid,this.seaurchin3,this.minushp,null,this);
 
-	if(timeleft <=0){
-		this.state.start('End1');
+
+	this.game.physics.arcade.collide(this.mermaid,this.layer);
+	this.mermaid.body.velocity.x = 0;
+	this.mermaid.body.velocity.y = -5;
+
+	if(this.score == 5){
+		this.game.add.button(this.mermaid.x, this.mermaid.y, 'continuebutton', this.Click, this, null);
+		score = score + this.score;
+		this.mermaid.body.immovable = true;
+
+	}
+
+	if(this.health <= 0){
+		this.game.add.button(this.mermaid.x, this.mermaid.y, 'continuebutton', this.Click, this, null);
+		score = score + this.score;
+		this.mermaid.body.immovable = true;
+
 	}	
-
-	this.game.physics.arcade.collide(this.witchlady,this.layer);
-	this.game.physics.arcade.collide(this.player,this.layer);
-	this.game.physics.arcade.overlap(this.player,this.blackbar,this.goDesert,null,this);
-	this.game.physics.arcade.overlap(this.player,this.potion1,this.getpotion1,null,this);
-	this.game.physics.arcade.overlap(this.player,this.potion2,this.getpotion2,null,this);
-	this.game.physics.arcade.overlap(this.player,this.potion3,this.getpotion3,null,this);
-	this.game.physics.arcade.overlap(this.player,this.potion4,this.getpotion4,null,this);
-	this.game.physics.arcade.overlap(this.player,this.potion5,this.getpotion5,null,this);
-
-	this.player.body.velocity.x = 0;
-    	this.player.body.velocity.y = 0;
-
-	this.game.physics.arcade.overlap(this.player,this.witchlady,this.pausemovement,null,this);
-	
-
-if(this.witchlady.body.velocity.x > 0 && this.witchlady.body.velocity.x > this.witchlady.body.velocity.y){
-		this.witchlady.animations.play('right');
-}
-	else if (this.witchlady.body.velocity.x < 0 && this.witchlady.body.velocity.x < this.witchlady.body.velocity.y){
-		this.witchlady.animations.play('left');
-}
-	else if(this.witchlady.body.velocity.y > 0 && this.witchlady.body.velocity.y > this.witchlady.body.velocity.x){
-		this.witchlady.animations.play('up');
-}
-	else{
-		this.witchlady.animations.play('idle');
-}
 
 
 if (this.cursors.left.isDown)
     {
-        this.player.body.velocity.x = -200;
+        this.mermaid.body.velocity.x = -200;
 
         if (this.facing != 'left')
         {
-            this.player.animations.play('left');
+            this.mermaid.animations.play('left');
             this.facing = 'left';
         }
     }
 else if (this.cursors.down.isDown)
     {
-        this.player.body.velocity.y = 200;
+        this.mermaid.body.velocity.y = 200;
 
         if (this.facing != 'idle')
         {
-            this.player.animations.play('idle');
+            this.mermaid.animations.play('down');
             this.facing = 'idle';
         }
     }
 else if (this.cursors.up.isDown)
     {
-        this.player.body.velocity.y = -200;
+        this.mermaid.body.velocity.y = -200;
 
         if (this.facing != 'idle')
         {
-            this.player.animations.play('up');
+            this.mermaid.animations.play('up');
             this.facing = 'idle';
         }
     }
     else if (this.cursors.right.isDown)
     {
-        this.player.body.velocity.x = 200;
+        this.mermaid.body.velocity.x = 200;
 	        if (this.facing != 'right')
         {
-            this.player.animations.play('right');
+            this.mermaid.animations.play('right');
             this.facing = 'right';
         }
 
@@ -659,15 +734,15 @@ else if (this.cursors.up.isDown)
     {
         if (this.facing != 'idle')
         {
-            this.player.animations.stop();
+            this.mermaid.animations.stop();
 
             if (this.facing == 'left')
             {
-                this.player.frame = 0;
+                this.mermaid.frame = 0;
             }
             else
             {
-                this.player.frame = 5;
+                this.mermaid.frame = 5;
             }
 
             this.facing = 'idle';
@@ -680,13 +755,9 @@ else if (this.cursors.up.isDown)
 
     render: function () {
 
-       
+       this.game.debug.text("Pearls: " + this.score, 50, 50);
+       this.game.debug.text("Health: " + this.health, 400, 50);
 
-       this.game.debug.text("Time Remaining: " + timeleft, 50, 50);
-	if(gettingflowers == true){
-		this.game.debug.text("Flowers: " + flowerpoint, 50,480);
-	}       
-	this.game.debug.text("Money: " + money, 400,50);
 
 
     }
@@ -709,12 +780,8 @@ P2Game.End1.prototype = {
 
 	this.game.stage.backgroundColor = '#00FFFF';	
 
-	var style3 = {font: "30px Arial", fill:"#DC143C"};
-	if(timeleft > 0){
-		var scoringstuff = "Thanks for your help! You saved your friend!"}
-	else{
-		var scoringstuff = "Try Again. Refresh to Play!";
-	}
+	var style3 = {font: "25px Arial", fill:"#DC143C"};
+	var scoringstuff = "You Finished the Amazing Race! Your score: " + score;
  	var winstatement = game.add.text(50,200,scoringstuff,style3);
 	music.pause();
 	
@@ -738,7 +805,7 @@ P2Game.End1.prototype = {
 
 game.state.add('End1', P2Game.End1);
 game.state.add('Boot', P2Game.Boot);
-game.state.add('InWitchShop', P2Game.InWitchShop);
+game.state.add('UnderWater', P2Game.UnderWater);
 game.state.add('WorldMap', P2Game.WorldMap);
 game.state.add('Preload', P2Game.Preload);
 game.state.add('Desert', P2Game.Desert);
@@ -753,4 +820,6 @@ game.state.start('Boot');
 //http://www.spriters-resource.com/arcade/ms2/sheet/27591/
 //http://www.spriters-resource.com/resources/sheets/47/49867.png
 //http://features.cgsociety.org/newgallerycrits/g95/453895/453895_1298562889_medium.jpg
+//http://forums.rpgmakerweb.com/uploads/gallery/album_2/gallery_5198_2_12576.png
+//
 
